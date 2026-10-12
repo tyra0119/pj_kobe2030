@@ -55,6 +55,11 @@ map.on('style.load', () => {
     if (l.type !== 'symbol') continue;
     const tf = map.getLayoutProperty(l.id, 'text-field');
     if (tf && /name/.test(JSON.stringify(tf))) map.setLayoutProperty(l.id, 'text-field', ['coalesce', ['get', 'name:ja'], ['get', 'name'], ['get', 'name_en']]);
+    // 文字を濃く、白い縁取りをはっきり（2026-10-13 利用者「文字を濃くして」）。川・海の名前だけ青み
+    if (!tf) continue;
+    map.setPaintProperty(l.id, 'text-color', /water/.test(l.id) ? '#2f5d8a' : '#1f2328');
+    map.setPaintProperty(l.id, 'text-halo-color', 'rgba(255, 255, 255, 0.95)');
+    map.setPaintProperty(l.id, 'text-halo-width', 1.6);
   }
 });
 // 隠れているあいだに窓の大きさが変わると、地図が前の大きさのまま残ることがある。
