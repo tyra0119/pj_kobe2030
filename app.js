@@ -51,7 +51,11 @@ const map = new maplibregl.Map({
         attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル</a>',
       },
     },
-    layers: [{ id: 'pale', type: 'raster', source: 'pale' }],
+    // 背景は灰色にして、等高線・道路の色が色分けと混ざらないようにする（2026-10-13 利用者「地図が見づらい」）
+    layers: [{
+      id: 'pale', type: 'raster', source: 'pale',
+      paint: { 'raster-saturation': -1, 'raster-contrast': -0.15, 'raster-brightness-min': 0.12 },
+    }],
   },
   bounds: AREA_BOUNDS,
   fitBoundsOptions: { padding: fitPadding() },
@@ -204,12 +208,31 @@ Promise.all([
   map.addSource('cells', { type: 'geojson', data: cellsFc() });
   map.addSource('boundary', { type: 'geojson', data: boundary });
   map.addSource('did', { type: 'geojson', data: did });
+  // バス停・駅は、色分けしたメッシュから歩いて行ける所（約 1km 以内）のものだけ出す。
+  // 距離の計算には外のものも使っているが、出すと神戸の市街地まで点だらけになる
+  const near = new Set();
+  for (const r of data) {
+    const lon = r[0] + meta.dlon / 2, lat = r[1] + meta.dlat / 2;
+    const kx = 111320 * Math.cos((lat * Math.PI) / 180);
+    stopsFc.features.forEach((f, j) => {
+      if (near.has(j)) return;
+      const [x, y] = f.geometry.coordinates;
+      if (Math.abs(x - lon) * kx < 1000 && Math.abs(y - lat) * 110950 < 1000) near.add(j);
+    });
+  }
+  stopsFc.features.forEach((f, j) => (f.properties.near = near.has(j)));
   map.addSource('stops', { type: 'geojson', data: stopsFc });
+  map.addSource('mask', { type: 'geojson', data: maskFc(boundary) });
   map.addSource('fac', { type: 'geojson', data: facFc });
 
   map.addLayer({
     id: 'cells', type: 'fill', source: 'cells',
-    paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.62, 16, 0.4] },
+    // fill-antialias を切ると、となりのメッシュとの間の白い細い線が出ない
+    paint: {
+      'fill-color': ['get', 'color'], 'fill-antialias': false,
+      // 拡大するほど薄くして、道や町名が透けて見えるように
+      'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.78, 12, 0.65, 14, 0.42, 16, 0.28],
+    },
   });
   map.addLayer({
     id: 'cells-sel', type: 'line', source: 'cells', filter: ['==', ['get', 'i'], -1],
@@ -219,21 +242,29 @@ Promise.all([
     id: 'did', type: 'line', source: 'did', layout: { visibility: 'none' },
     paint: { 'line-color': '#6b4fbb', 'line-width': 1.6, 'line-dasharray': [2, 1.5] },
   });
+  // 対象（北区・三田市）の外を白く覆い、境目を太く
+  map.addLayer({ id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.55 } }, 'cells');
   map.addLayer({
-    id: 'boundary', type: 'line', source: 'boundary',
-    paint: { 'line-color': '#333', 'line-width': 1.4, 'line-opacity': 0.7 },
+    id: 'boundary-casing', type: 'line', source: 'boundary',
+    paint: { 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.9 },
   });
   map.addLayer({
-    id: 'stops-bus', type: 'circle', source: 'stops', filter: ['==', ['get', 'kind'], 'bus'], minzoom: 12,
+    id: 'boundary', type: 'line', source: 'boundary',
+    paint: { 'line-color': '#3b4250', 'line-width': 2.2 },
+  });
+  map.addLayer({
+    id: 'stops-bus', type: 'circle', source: 'stops', minzoom: 13,
+    filter: ['all', ['==', ['get', 'kind'], 'bus'], ['get', 'near']],
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2, 16, 5],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 2.5, 16, 5],
       'circle-color': '#ffffff', 'circle-stroke-color': '#0b6bcb', 'circle-stroke-width': 1.5,
     },
   });
   map.addLayer({
-    id: 'stops-rail', type: 'circle', source: 'stops', filter: ['==', ['get', 'kind'], 'rail'],
+    id: 'stops-rail', type: 'circle', source: 'stops',
+    filter: ['all', ['==', ['get', 'kind'], 'rail'], ['get', 'near']],
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3.5, 16, 8],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 16, 7],
       'circle-color': '#222', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
     },
   });
@@ -268,6 +299,18 @@ Promise.all([
 
   render();
 });
+
+// 対象の外を覆う形: 広い四角から、北区・三田市の形をくり抜く
+function maskFc(boundary) {
+  const holes = boundary.features.flatMap((f) => f.geometry.coordinates.map((poly) => poly[0]));
+  return {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature', properties: {},
+      geometry: { type: 'Polygon', coordinates: [[[133, 33], [137, 33], [137, 36.5], [133, 36.5], [133, 33]], ...holes] },
+    }],
+  };
+}
 
 function cellsFc() {
   return {
