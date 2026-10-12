@@ -184,12 +184,16 @@ function colorOf(r) {
 }
 
 // ---------- データ ----------
+// 公開ページ（GitHub Pages）はファイルを 10 分間ブラウザに残させるので、書き出すたびに付く版の印（app.js?v=…）を
+// データにも付けて、古いデータが使われないようにする（scripts/publish.js）
+const VER = new URL(document.currentScript?.src || location.href).searchParams.get('v') || '';
+const load = (path) => fetch(VER ? `${path}?v=${VER}` : path).then((r) => r.json());
 Promise.all([
-  fetch('data/cells.json').then((r) => r.json()),
-  fetch('data/stops.geojson').then((r) => r.json()),
-  fetch('data/facilities.geojson').then((r) => r.json()),
-  fetch('data/boundary.geojson').then((r) => r.json()),
-  fetch('data/did.geojson').then((r) => r.json()),
+  load('data/cells.json'),
+  load('data/stops.geojson'),
+  load('data/facilities.geojson'),
+  load('data/boundary.geojson'),
+  load('data/did.geojson'),
   new Promise((ok) => (map.isStyleLoaded() ? ok() : map.once('style.load', ok))),
 ]).then(([cells, stopsFc, facFc, boundary, did]) => {
   data = cells.cells;
