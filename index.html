@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>車なしで暮らせる度マップ 神戸市北区</title>
+<title>車なしで暮らせる度マップ 北区・三田市</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -14,7 +14,7 @@
   <details open id="panel-box">
     <summary>
       <span class="title">車なしで暮らせる度マップ</span>
-      <span class="sub">神戸市北区</span>
+      <span class="sub">北区・三田市</span>
     </summary>
 
     <div class="row">
@@ -52,6 +52,14 @@
 
     <div id="legend"></div>
 
+    <div class="row">
+      <div class="label">人口の内訳</div>
+      <div class="seg" id="area">
+        <button data-v="all" class="on">合計</button>
+        <button data-v="0">神戸市北区</button>
+        <button data-v="1">三田市</button>
+      </div>
+    </div>
     <div id="stats"></div>
 
     <div class="row">
@@ -66,7 +74,7 @@
     </div>
 
     <p class="note">
-      バスの本数・終バスはまだ入っていません（北区のバスの多くを走らせる民間バス会社の時刻データが公開されていないため）。
+      バスの本数・終バスはまだ入っていません（北区・三田市のバスの多くを走らせる民間バス会社の時刻データが公開されていないため）。
       距離は直線の 1.3 倍を道のりとし、「坂を考える」では帰り道の上り 1m を平らな道 8m として足しています。
       メッシュを押すと詳しく見られます。
     </p>

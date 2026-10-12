@@ -1,6 +1,7 @@
-// 車なしで暮らせる度マップ（神戸市北区）
+// 車なしで暮らせる度マップ（神戸市北区・三田市）
 // data/cells.json の 1 行 = 人口のある 250m メッシュ 1 つ。
-//   [西経, 南緯, 人口, 65歳以上, 75歳以上, 標高, 坂なし×4, 坂あり×4, 帰りの上り×4]
+//   [西経, 南緯, 人口, 65歳以上, 75歳以上, 標高, 坂なし×4, 坂あり×4, 帰りの上り×4, 地域]
+//   地域は meta.areas の番号（0 神戸市北区・1 三田市）
 //   ×4 は 乗り場（バス停・駅）・スーパー・病院診療所・小学校 までの道のり（m）
 
 const KINDS = ['stop', 'super', 'clinic', 'school'];
@@ -18,12 +19,13 @@ const STEPS = [
   { max: 20, color: '#ee7d3b', name: '20分以内' },
   { max: Infinity, color: '#d1495b', name: '20分より先' },
 ];
-const KITA_BOUNDS = [[135.03, 34.70], [135.32, 34.93]];
+// 北区と三田市を合わせた範囲
+const AREA_BOUNDS = [[135.03, 34.70], [135.32, 35.04]];
 const fitPadding = () => (matchMedia('(max-width: 640px)').matches
   ? { top: 70, bottom: 20, left: 20, right: 60 }
   : { top: 30, bottom: 30, left: 370, right: 70 });
 
-const state = { mode: 'all', mins: 10, speed: 80, slope: 1 };
+const state = { mode: 'all', mins: 10, speed: 80, slope: 1, area: 'all' };
 let data, meta, stops, selected = null;
 
 // パネルはスマホでははじめたたむ。自分で開け閉めしたあとは触らない
@@ -51,7 +53,7 @@ const map = new maplibregl.Map({
     },
     layers: [{ id: 'pale', type: 'raster', source: 'pale' }],
   },
-  bounds: KITA_BOUNDS,
+  bounds: AREA_BOUNDS,
   fitBoundsOptions: { padding: fitPadding() },
   maxZoom: 18,
   minZoom: 8,
@@ -59,13 +61,13 @@ const map = new maplibregl.Map({
 });
 window.map = map; // 調べもの用
 // 隠れているあいだに窓の大きさが変わると、地図が前の大きさのまま残ることがある。
-// まだ地図を触っていなければ、北区全体が入るように合わせ直す
+// まだ地図を触っていなければ、北区と三田市の全体が入るように合わせ直す
 let userMoved = false;
 map.on('movestart', (e) => { if (e.originalEvent) userMoved = true; });
 const fitCanvas = () => {
   fitPanel();
   if (map.getCanvas().clientWidth !== map.getContainer().clientWidth) map.resize();
-  if (!userMoved && !selected) map.fitBounds(KITA_BOUNDS, { padding: fitPadding(), animate: false });
+  if (!userMoved && !selected) map.fitBounds(AREA_BOUNDS, { padding: fitPadding(), animate: false });
 };
 addEventListener('resize', fitCanvas);
 document.addEventListener('visibilitychange', fitCanvas);
@@ -115,11 +117,11 @@ map.on('rotate', turnCompass);
 
 let me = null;
 function locate(btn) {
-  // 現在地が取れないときは、選んでいるメッシュ、それもなければ北区の中ほどを出す
+  // 現在地が取れないときは、選んでいるメッシュ、それもなければ北区と三田市の全体を出す
   const fallback = (why) => {
     if (selected) map.easeTo({ center: selected, zoom: Math.max(map.getZoom(), 14) });
-    else map.fitBounds(KITA_BOUNDS, { padding: fitPadding() });
-    message(`${why}。${selected ? '選んでいる場所' : '北区の中ほど'}を表示します`);
+    else map.fitBounds(AREA_BOUNDS, { padding: fitPadding() });
+    message(`${why}。${selected ? '選んでいる場所' : '北区と三田市の全体'}を表示します`);
   };
   if (!navigator.geolocation) return fallback('現在地が使えません');
   btn.classList.add('busy');
@@ -134,8 +136,8 @@ function locate(btn) {
       }
       me.setLngLat(ll).addTo(map);
       map.easeTo({ center: ll, zoom: Math.max(map.getZoom(), 15) });
-      const [[w, s], [e, n]] = KITA_BOUNDS;
-      if (ll[0] < w || ll[0] > e || ll[1] < s || ll[1] > n) message('いまの場所は北区の外です（色分けは北区だけ）');
+      const [[w, s], [e, n]] = AREA_BOUNDS;
+      if (ll[0] < w || ll[0] > e || ll[1] < s || ll[1] > n) message('いまの場所は北区・三田市の外です（色分けは北区と三田市だけ）');
     },
     () => {
       btn.classList.remove('busy');
@@ -196,7 +198,7 @@ Promise.all([
   data = cells.cells;
   meta = cells.meta;
   stops = stopsFc.features;
-  // 画面の大きさが決まってから、北区全体が入るように合わせ直す（まだ触っていなければ）
+  // 画面の大きさが決まってから、全体が入るように合わせ直す（まだ触っていなければ）
   fitCanvas();
 
   map.addSource('cells', { type: 'geojson', data: cellsFc() });
@@ -301,7 +303,10 @@ function renderLegend() {
 
 function renderStats() {
   const el = document.getElementById('stats');
-  const sum = (f) => data.reduce((a, r) => a + f(r), 0);
+  // 内訳は選んだ地域（合計・北区・三田市）の分だけ数える
+  const rows = state.area === 'all' ? data : data.filter((r) => r[18] === state.area);
+  const sum = (f) => rows.reduce((a, r) => a + f(r), 0);
+  const areaName = state.area === 'all' ? meta.areas.join('・') : meta.areas[state.area];
   const total = sum((r) => r[2]);
   const total65 = sum((r) => r[3]);
   let groups;
@@ -321,7 +326,7 @@ function renderStats() {
   const pct = (a, b) => (b ? ((a / b) * 100).toFixed(1) : '0.0') + '%';
   const bar = (key, tot) => `<div class="bar">${groups.map((g) => `<span style="width:${(g[key] / tot) * 100}%;background:${g.color}" title="${g.name} ${pct(g[key], tot)}"></span>`).join('')}</div>`;
   el.innerHTML = `
-    <div class="label">北区の人口 ${total.toLocaleString()}人（2020年）のうち</div>
+    <div class="label">${areaName}の人口 ${total.toLocaleString()}人（2020年）のうち</div>
     ${bar('pop', total)}
     <div class="cap">65歳以上 ${total65.toLocaleString()}人では</div>
     ${bar('old', total65)}
@@ -360,6 +365,7 @@ function showCell(i, lngLat) {
   openPopup(lngLat, `<div class="pop">
     <span class="lv" style="background:${lv.color}">${lv.name}</span>
     <table>
+      <tr><td>地域</td><td class="n">${meta.areas[r[18]]}</td></tr>
       <tr><td>人口</td><td class="n">${r[2].toLocaleString()}人（65歳以上 ${r[2] ? Math.round((r[3] / r[2]) * 100) : 0}%）</td></tr>
       <tr><td>標高</td><td class="n">約${r[5]}m</td></tr>
       ${rows}
@@ -411,6 +417,7 @@ function seg(id, key, conv = (v) => v) {
 seg('mode', 'mode');
 seg('speed', 'speed', Number);
 seg('slope', 'slope', Number);
+seg('area', 'area', (v) => (v === 'all' ? 'all' : Number(v)));
 
 const minsEl = document.getElementById('mins');
 minsEl.addEventListener('input', () => {

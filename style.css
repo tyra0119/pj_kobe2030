@@ -78,7 +78,7 @@ body {
 #panel details:not([open]) summary::after { content: "▼"; }
 #panel details:not([open]) { padding-bottom: 0; }
 .title { font-weight: 700; font-size: 16px; }
-.sub { color: var(--muted); }
+.sub { color: var(--muted); white-space: nowrap; }
 
 .row { margin: 10px 0; }
 .row.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
