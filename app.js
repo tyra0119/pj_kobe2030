@@ -450,6 +450,28 @@ function showPoint(f, lngLat) {
   openPopup(lngLat, html);
 }
 
+// ---------- この地図について ----------
+// 初めて開いたときだけ出す。閉じたことはブラウザに覚える（覚えられないときは毎回出る）
+const INTRO_KEY = 'kobe2030.introSeen';
+const intro = document.getElementById('intro');
+function openIntro() {
+  intro.hidden = false;
+  // ボタンに移すと一番下まで流れるので、上から読めるように戻す
+  document.getElementById('intro-close').focus({ preventScroll: true });
+  intro.querySelector('.intro-box').scrollTop = 0;
+}
+function closeIntro() {
+  intro.hidden = true;
+  try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* 覚えられなくても閉じる */ }
+}
+document.getElementById('intro-close').addEventListener('click', closeIntro);
+document.getElementById('about-open').addEventListener('click', openIntro);
+intro.addEventListener('click', (e) => { if (e.target === intro) closeIntro(); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && !intro.hidden) closeIntro(); });
+let seen = false;
+try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { /* 覚えられない */ }
+if (!seen) openIntro();
+
 // ---------- 設定 ----------
 function seg(id, key, conv = (v) => v) {
   const box = document.getElementById(id);

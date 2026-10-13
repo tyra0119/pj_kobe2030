@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://basemaps.cartocdn.com" crossorigin>
 <link rel="preconnect" href="https://tiles.basemaps.cartocdn.com" crossorigin>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-<link rel="stylesheet" href="style.css?v=5ce142518d">
+<link rel="stylesheet" href="style.css?v=3d4e21f432">
 </head>
 <body>
 <div id="map"></div>
@@ -18,6 +18,8 @@
       <span class="title">車なしで暮らせる度マップ</span>
       <span class="sub">北区・三田市</span>
     </summary>
+
+    <button type="button" class="about-link" id="about-open">この地図について</button>
 
     <div class="row">
       <div class="label">色分け</div>
@@ -88,7 +90,48 @@
   </details>
 </aside>
 
+<!-- 初めて開いたときの説明（閉じたら次からは出さない。パネルの「この地図について」で開き直せる） -->
+<div id="intro" class="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" hidden>
+  <div class="intro-box">
+    <h2 id="intro-title">車なしで暮らせる度マップ</h2>
+    <p class="lead">
+      神戸市北区と三田市で、<b>車がなくても毎日の暮らしが成り立つか</b>を、住んでいる場所ごとに色で表した地図です。
+      人が住んでいる約250m四方のマスごとに、バス停・駅、スーパー、病院・診療所まで歩いて何分かを調べています。
+    </p>
+
+    <h3>これを知ると何がわかるか</h3>
+    <ul>
+      <li><b>年をとって車を手放しても暮らせるか</b>：免許を返したあとも、今の家で買い物や通院を続けられるかの目安になります。</li>
+      <li><b>住まい選びの参考に</b>：引っ越しや住み替えのとき、車なしで暮らしやすい場所を探せます。</li>
+      <li><b>地域で困っている所が見える</b>：バスが届いていない所、坂がきつくて歩きにくい所、お年寄りが多いのにお店が遠い所が、色と人数で分かります。地域や市と、バスの便や買い物の手段を話し合う材料になります。</li>
+      <li><b>神戸市の目標との関係</b>：神戸市の「神戸2030ビジョン」は、電車やバスで移動する人を増やすこと、お店や病院がそろった街を保つこと、古くなったニュータウンの暮らしを支えることを目標にしています。この地図は、その目標に照らして今どうなっているかを見るためのものです。</li>
+    </ul>
+
+    <h3>色の意味</h3>
+    <ul class="intro-legend">
+      <li><span class="sw" style="background:#1a9e77"></span><b>歩いて暮らせる</b>　スーパーと病院・診療所の両方まで歩いて行ける</li>
+      <li><span class="sw" style="background:#f2b134"></span><b>バス・電車が近い</b>　歩いて行ける所にバス停か駅がある</li>
+      <li><span class="sw" style="background:#d1495b"></span><b>車がないと難しい</b>　歩いて行ける所にバス停も駅もない</li>
+    </ul>
+
+    <h3>使い方</h3>
+    <ul>
+      <li>左のパネルで「歩ける時間」「歩く速さ」「坂」を変えると、色と人数の割合がその場で変わります。お年寄りなら「ゆっくり」がおすすめです。</li>
+      <li>マスを押すと、そこの人口や、各施設まで歩いて何分か、近くのバス停が出ます。</li>
+      <li>「色分け」でスーパーだけ・病院だけなども見られます。</li>
+    </ul>
+
+    <h3>ご注意</h3>
+    <p class="note">
+      バスの本数や終バスの時刻は、まだ入っていません（民間バス会社の時刻データが公開されていないため）。
+      距離は直線距離をもとにした目安で、実際の道のりとは違うことがあります。
+    </p>
+
+    <button type="button" class="intro-start" id="intro-close">地図を見る</button>
+  </div>
+</div>
+
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="app.js?v=5ce142518d"></script>
+<script src="app.js?v=3d4e21f432"></script>
 </body>
 </html>
