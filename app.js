@@ -293,6 +293,7 @@ Promise.all([
     if (pt) return showPoint(pt, e.lngLat);
     const cell = map.queryRenderedFeatures(e.point, { layers: ['cells'] })[0];
     if (cell) showCell(cell.properties.i, e.lngLat);
+    else if (popup) popup.remove();
   });
   for (const id of POINT_LAYERS) {
     map.on('mouseenter', id, () => (map.getCanvas().style.cursor = 'pointer'));
@@ -385,8 +386,18 @@ function renderStats() {
 
 let popup = null, popupCell = null;
 function openPopup(lngLat, html) {
-  if (!popup) popup = new maplibregl.Popup({ maxWidth: '320px', focusAfterOpen: false });
-  popup.setLngLat(lngLat).setHTML(html).addTo(map);
+  // closeOnClick は切る。入れたままだと、別の場所を押したとき新しい中身を出した直後に閉じてしまい、
+  // 2 回押さないと開かなかった（2026-10-13 利用者）。何もない所を押したときは地図の click で閉じる
+  if (!popup) {
+    popup = new maplibregl.Popup({ maxWidth: '320px', focusAfterOpen: false, closeOnClick: false });
+    popup.on('close', () => {
+      popupCell = null;
+      map.setFilter('cells-sel', ['==', ['get', 'i'], -1]);
+    });
+  }
+  popup.setLngLat(lngLat).setHTML(html);
+  // 開いているときに addTo し直すと、いったん閉じて close が走る（選んだマスの枠が消える）ので、閉じているときだけ
+  if (!popup.isOpen()) popup.addTo(map);
 }
 
 function fmtMin(m) {
@@ -447,6 +458,7 @@ function showPoint(f, lngLat) {
     html = `<div class="pop"><h3>${p.name}</h3><div class="op">${p.sub || KIND_NAME[p.type]}</div></div>`;
   }
   popupCell = null;
+  map.setFilter('cells-sel', ['==', ['get', 'i'], -1]);
   openPopup(lngLat, html);
 }
 
