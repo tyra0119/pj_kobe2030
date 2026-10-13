@@ -40,8 +40,22 @@ fitPanel();
 // ---------- 地図 ----------
 const map = new maplibregl.Map({
   container: 'map',
-  // 背景は BusTracker と同じ明るい地図（CARTO Positron）（2026-10-13 利用者「Bustrackerで使っている明るい地図にしてくれる？」）
-  style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  // 背景は こうづだい暮らしナビ（kozdai の map.html）と同じ OpenStreetMap 標準の地図
+  // （2026-10-13 利用者「以下のURLで使用している地図に変更して https://tyra.jp/kozdai/map.html」）。
+  // 利用規約: https://operations.osmfoundation.org/policies/tiles/ 。出典の表示が要る
+  style: {
+    version: 8,
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+  },
   bounds: AREA_BOUNDS,
   fitBoundsOptions: { padding: fitPadding() },
   maxZoom: 18,
@@ -49,19 +63,6 @@ const map = new maplibregl.Map({
   attributionControl: { compact: true, customAttribution: '国土数値情報・国勢調査（e-Stat）・地理院タイル（標高）・OSM から作成' },
 });
 window.map = map; // 調べもの用
-// 地名は日本語で: CARTO の地図は縮尺によって英語名（name_en）や現地名を出すので、日本語名（name:ja）を優先する（BusTracker と同じ）
-map.on('style.load', () => {
-  for (const l of map.getStyle().layers) {
-    if (l.type !== 'symbol') continue;
-    const tf = map.getLayoutProperty(l.id, 'text-field');
-    if (tf && /name/.test(JSON.stringify(tf))) map.setLayoutProperty(l.id, 'text-field', ['coalesce', ['get', 'name:ja'], ['get', 'name'], ['get', 'name_en']]);
-    // 文字を濃く、白い縁取りをはっきり（2026-10-13 利用者「文字を濃くして」）。川・海の名前だけ青み
-    if (!tf) continue;
-    map.setPaintProperty(l.id, 'text-color', /water/.test(l.id) ? '#2f5d8a' : '#1f2328');
-    map.setPaintProperty(l.id, 'text-halo-color', 'rgba(255, 255, 255, 0.95)');
-    map.setPaintProperty(l.id, 'text-halo-width', 1.6);
-  }
-});
 // 隠れているあいだに窓の大きさが変わると、地図が前の大きさのまま残ることがある。
 // まだ地図を触っていなければ、北区と三田市の全体が入るように合わせ直す
 let userMoved = false;
@@ -227,8 +228,6 @@ Promise.all([
   map.addSource('mask', { type: 'geojson', data: maskFc(boundary) });
   map.addSource('fac', { type: 'geojson', data: facFc });
 
-  // 色分け・境目は地名の文字の下に敷く（文字が隠れないように）。バス停・駅・施設の点は文字の上
-  const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
   map.addLayer({
     id: 'cells', type: 'fill', source: 'cells',
     // fill-antialias を切ると、となりのメッシュとの間の白い細い線が出ない
@@ -237,25 +236,25 @@ Promise.all([
       // 拡大するほど薄くして、道や町名が透けて見えるように
       'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.78, 12, 0.65, 14, 0.42, 16, 0.28],
     },
-  }, firstSymbol);
+  });
   map.addLayer({
     id: 'cells-sel', type: 'line', source: 'cells', filter: ['==', ['get', 'i'], -1],
     paint: { 'line-color': '#111', 'line-width': 2.5 },
-  }, firstSymbol);
+  });
   map.addLayer({
     id: 'did', type: 'line', source: 'did', layout: { visibility: 'none' },
     paint: { 'line-color': '#6b4fbb', 'line-width': 1.6, 'line-dasharray': [2, 1.5] },
-  }, firstSymbol);
+  });
   // 対象（北区・三田市）の外を白く覆い、境目を太く
   map.addLayer({ id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.55 } }, 'cells');
   map.addLayer({
     id: 'boundary-casing', type: 'line', source: 'boundary',
     paint: { 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.9 },
-  }, firstSymbol);
+  });
   map.addLayer({
     id: 'boundary', type: 'line', source: 'boundary',
     paint: { 'line-color': '#3b4250', 'line-width': 2.2 },
-  }, firstSymbol);
+  });
   map.addLayer({
     id: 'stops-bus', type: 'circle', source: 'stops', minzoom: 13,
     filter: ['all', ['==', ['get', 'kind'], 'bus'], ['get', 'near']],
