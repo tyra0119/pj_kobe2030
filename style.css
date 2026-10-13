@@ -107,6 +107,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 #legend .item { display: flex; align-items: center; gap: 8px; }
 #legend .sw { width: 16px; height: 16px; border-radius: 3px; flex: none; opacity: .85; }
 
+.slope-legend { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 12.5px; }
+.slope-legend .item { display: flex; align-items: center; gap: 8px; }
+.slope-legend .line { width: 22px; height: 5px; border-radius: 3px; flex: none; }
+.slope-legend .cap { color: var(--muted); font-size: 12px; }
+
 #stats { margin: 10px 0; font-size: 13px; }
 #stats .bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; margin: 4px 0 2px; }
 #stats .bar span { display: block; height: 100%; }

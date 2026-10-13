@@ -6,7 +6,7 @@
 <title>車なしで暮らせる度マップ 北区・三田市</title>
 <link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-<link rel="stylesheet" href="style.css?v=1dac49fdde">
+<link rel="stylesheet" href="style.css?v=9fd983df48">
 </head>
 <body>
 <div id="map"></div>
@@ -73,7 +73,10 @@
         <label><input type="checkbox" data-layer="clinic"> 病院・診療所</label>
         <label><input type="checkbox" data-layer="school"> 小学校</label>
         <label><input type="checkbox" data-layer="did"> 人口集中地区（DID）</label>
+        <label><input type="checkbox" data-layer="slope"> 道の坂の急さ</label>
+        <label><input type="checkbox" id="terrain"> 立体で見る（地形）</label>
       </div>
+      <div id="slope-legend" class="slope-legend" hidden></div>
     </div>
 
     <p class="note">
@@ -118,6 +121,7 @@
       <li>左のパネルで「歩ける時間」「歩く速さ」「坂」を変えると、色と人数の割合がその場で変わります。お年寄りなら「ゆっくり」がおすすめです。</li>
       <li>マスを押すと、そこの人口や、各施設まで歩いて何分か、近くのバス停が出ます。</li>
       <li>「色分け」でスーパーだけ・病院だけなども見られます。</li>
+      <li>「道の坂の急さ」で坂の急な道が紫で出ます。「立体で見る（地形）」で丘や谷が立体になります（2本指で上下に動かすか、右ドラッグで傾きを変えられます）。</li>
     </ul>
 
     <h3>ご注意</h3>
@@ -131,6 +135,7 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="app.js?v=1dac49fdde"></script>
+<script src="terrain.js"></script>
+<script src="app.js?v=9fd983df48"></script>
 </body>
 </html>

@@ -25,6 +25,13 @@ const fitPadding = () => (matchMedia('(max-width: 640px)').matches
   ? { top: 70, bottom: 20, left: 20, right: 60 }
   : { top: 30, bottom: 30, left: 370, right: 70 });
 
+// 道の坂の急さ（%）の色。色分け（緑・黄・赤）と混ざらないよう紫の濃淡（scripts/slopes.py は 5% 以上だけ書く）
+const SLOPE_STEPS = [
+  { min: 5, color: '#b388eb', name: '5〜8%', desc: 'やや急（車いすで上れる目安は 5% まで）' },
+  { min: 8, color: '#7b2cbf', name: '8〜12%', desc: '急' },
+  { min: 12, color: '#3c096c', name: '12%以上', desc: 'とても急' },
+];
+
 const state = { mode: 'all', mins: 10, speed: 80, slope: 1, area: 'all' };
 let data, meta, stops, selected = null;
 
@@ -227,6 +234,8 @@ Promise.all([
   map.addSource('stops', { type: 'geojson', data: stopsFc });
   map.addSource('mask', { type: 'geojson', data: maskFc(boundary) });
   map.addSource('fac', { type: 'geojson', data: facFc });
+  // 道の坂は約 4MB あるので、初めて「道の坂の急さ」をオンにしたときに読む（loadSlopes）
+  map.addSource('slopes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
   map.addLayer({
     id: 'cells', type: 'fill', source: 'cells',
@@ -234,7 +243,7 @@ Promise.all([
     paint: {
       'fill-color': ['get', 'color'], 'fill-antialias': false,
       // 拡大するほど薄くして、道や町名が透けて見えるように
-      'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.78, 12, 0.65, 14, 0.42, 16, 0.28],
+      'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.78, 12, 0.65, 14, 0.42, 16, 0.28], // CELL_OPACITY と同じ
     },
   });
   map.addLayer({
@@ -254,6 +263,19 @@ Promise.all([
   map.addLayer({
     id: 'boundary', type: 'line', source: 'boundary',
     paint: { 'line-color': '#3b4250', 'line-width': 2.2 },
+  });
+  // 道の坂の急さ（白い縁取りの上に紫の濃淡）。初めは出さない
+  const slopeColor = ['step', ['get', 's'], SLOPE_STEPS[0].color, SLOPE_STEPS[1].min, SLOPE_STEPS[1].color, SLOPE_STEPS[2].min, SLOPE_STEPS[2].color];
+  // 太さ（縁取りは 2 太く。zoom の式は足し算の中に入れられないので、別に書く）
+  const slopeWidth = ['interpolate', ['linear'], ['zoom'], 11, 1.2, 14, 3, 17, 6];
+  const slopeCasingWidth = ['interpolate', ['linear'], ['zoom'], 11, 3.2, 14, 5, 17, 8];
+  map.addLayer({
+    id: 'slope-casing', type: 'line', source: 'slopes', layout: { visibility: 'none', 'line-cap': 'round' },
+    paint: { 'line-color': '#ffffff', 'line-width': slopeCasingWidth, 'line-opacity': 0.9 },
+  });
+  map.addLayer({
+    id: 'slope', type: 'line', source: 'slopes', layout: { visibility: 'none', 'line-cap': 'round' },
+    paint: { 'line-color': slopeColor, 'line-width': slopeWidth },
   });
   map.addLayer({
     id: 'stops-bus', type: 'circle', source: 'stops', minzoom: 13,
@@ -290,14 +312,17 @@ Promise.all([
     const visible = POINT_LAYERS.filter((id) => map.getLayoutProperty(id, 'visibility') !== 'none');
     const pt = map.queryRenderedFeatures(box, { layers: visible })[0];
     if (pt) return showPoint(pt, e.lngLat);
+    const sl = map.getLayoutProperty('slope', 'visibility') === 'visible' && map.queryRenderedFeatures(box, { layers: ['slope'] })[0];
+    if (sl) return showSlope(sl, e.lngLat);
     const cell = map.queryRenderedFeatures(e.point, { layers: ['cells'] })[0];
     if (cell) showCell(cell.properties.i, e.lngLat);
     else if (popup) popup.remove();
   });
-  for (const id of POINT_LAYERS) {
+  for (const id of [...POINT_LAYERS, 'slope']) {
     map.on('mouseenter', id, () => (map.getCanvas().style.cursor = 'pointer'));
     map.on('mouseleave', id, () => (map.getCanvas().style.cursor = ''));
   }
+  applyChecks();
   map.on('mouseenter', 'cells', () => (map.getCanvas().style.cursor = 'pointer'));
   map.on('mouseleave', 'cells', () => (map.getCanvas().style.cursor = ''));
 
@@ -447,6 +472,18 @@ function nearStops([lon, lat], T) {
   return [...byName.values()].sort((a, b) => a.dm - b.dm).slice(0, 12);
 }
 
+function showSlope(f, lngLat) {
+  const p = f.properties;
+  const st = [...SLOPE_STEPS].reverse().find((x) => p.s >= x.min);
+  popupCell = null;
+  map.setFilter('cells-sel', ['==', ['get', 'i'], -1]);
+  openPopup(lngLat, `<div class="pop">
+    <span class="lv" style="background:${st.color}">道の坂 約${p.s}%</span>
+    <div>${p.d}m 進むあいだに、約${p.u}m 上り下りします（${st.desc}）。</div>
+    <div class="cap" style="margin-top:4px">国土地理院の標高（5m・10m メッシュ）から出した目安です。</div>
+  </div>`);
+}
+
 function showPoint(f, lngLat) {
   const p = f.properties;
   let html;
@@ -508,9 +545,70 @@ minsEl.addEventListener('input', () => {
 
 const LAYER_IDS = {
   stops: ['stops-bus', 'stops-rail'], super: ['fac-super'], clinic: ['fac-clinic'], school: ['fac-school'], did: ['did'],
+  slope: ['slope-casing', 'slope'],
 };
+// 地図の準備（データの層を足す）が済む前に押されたものは、済んだあと applyChecks で反映する
+const ready = () => !!map.getLayer('cells');
+function applyLayer(cb) {
+  for (const id of LAYER_IDS[cb.dataset.layer]) map.setLayoutProperty(id, 'visibility', cb.checked ? 'visible' : 'none');
+  if (cb.dataset.layer === 'slope') {
+    showSlopeLegend(cb.checked);
+    if (cb.checked) loadSlopes();
+  }
+}
+let slopesLoading = null;
+function loadSlopes() {
+  if (!slopesLoading) {
+    message('道の坂を読み込んでいます…');
+    slopesLoading = load('data/slopes.geojson')
+      .then((fc) => { map.getSource('slopes').setData(fc); document.querySelector('.msg')?.remove(); })
+      .catch(() => { slopesLoading = null; message('道の坂を読み込めませんでした。もう一度オンにしてください'); });
+  }
+  return slopesLoading;
+}
 document.querySelectorAll('[data-layer]').forEach((cb) => {
-  cb.addEventListener('change', () => {
-    for (const id of LAYER_IDS[cb.dataset.layer]) map.setLayoutProperty(id, 'visibility', cb.checked ? 'visible' : 'none');
-  });
+  cb.addEventListener('change', () => { if (ready()) applyLayer(cb); });
+});
+function applyChecks() {
+  document.querySelectorAll('[data-layer]').forEach(applyLayer);
+  if (terrainCb.checked) setTerrain(true);
+}
+
+// 坂を出しているときは、色分けを薄くして坂の線を見やすく。凡例も出す
+const CELL_OPACITY = ['interpolate', ['linear'], ['zoom'], 10, 0.78, 12, 0.65, 14, 0.42, 16, 0.28];
+const CELL_OPACITY_DIM = ['interpolate', ['linear'], ['zoom'], 10, 0.4, 14, 0.25, 16, 0.18];
+function showSlopeLegend(on) {
+  const el = document.getElementById('slope-legend');
+  el.hidden = !on;
+  el.innerHTML = '<div class="cap">道の坂の急さ（5% より ゆるい道は塗らない）</div>'
+    + SLOPE_STEPS.map((s) => `<div class="item"><span class="line" style="background:${s.color}"></span><span>${s.name} ${s.desc}</span></div>`).join('');
+  if (map.getLayer('cells')) map.setPaintProperty('cells', 'fill-opacity', on ? CELL_OPACITY_DIM : CELL_OPACITY);
+}
+
+// ---------- 立体の地形（terrain.js） ----------
+// オンにすると地面を標高どおりに起こし、陰影を付け、地図を傾ける。オフで平らに戻し、真上からに
+const terrainCb = document.getElementById('terrain');
+function setTerrain(on) {
+  if (on) {
+    if (!map.getSource('dem')) {
+      map.addSource('dem', window.demSource());
+      map.addSource('dem-hs', window.demSource());
+      map.addLayer({
+        id: 'hillshade', type: 'hillshade', source: 'dem-hs',
+        paint: { 'hillshade-exaggeration': 0.45, 'hillshade-shadow-color': '#3a3020', 'hillshade-highlight-color': '#ffffff' },
+      }, 'mask');
+    }
+    map.setLayoutProperty('hillshade', 'visibility', 'visible');
+    map.setTerrain({ source: 'dem', exaggeration: window.exaggerationFor(map.getZoom()) });
+    if (map.getPitch() < 30) map.easeTo({ pitch: 60, duration: 800 });
+  } else {
+    map.setTerrain(null);
+    if (map.getLayer('hillshade')) map.setLayoutProperty('hillshade', 'visibility', 'none');
+    map.easeTo({ pitch: 0, duration: 600 });
+  }
+}
+terrainCb.addEventListener('change', () => { if (ready()) setTerrain(terrainCb.checked); });
+// 縮尺に合わせて高さの強め方を変える（引いて見るほど強める）
+map.on('zoomend', () => {
+  if (terrainCb.checked && map.getTerrain()) map.setTerrain({ source: 'dem', exaggeration: window.exaggerationFor(map.getZoom()) });
 });
