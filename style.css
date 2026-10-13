@@ -179,7 +179,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   border-radius: 8px;
   box-shadow: var(--shadow);
   overflow: hidden;
-  margin-top: 10px;
 }
 .mbtn {
   display: grid;
@@ -197,7 +196,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .mbtn svg { width: 22px; height: 22px; display: block; }
 .mbtn.busy svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.maplibregl-ctrl-bottom-right { margin: 0 12px 28px 0; display: flex; flex-direction: column; align-items: flex-end; }
+/* まとまり（方角・現在地・拡大縮小）のあいだを 10px あける。下の出典の表示とのあいだも同じ */
+.maplibregl-ctrl-bottom-right { margin: 0 12px 28px 0; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0; }
 .maplibregl-ctrl-top-right { margin: 12px 12px 0 0; }
 .maplibregl-ctrl-top-right .maplibregl-ctrl-group { border-radius: 8px; box-shadow: var(--shadow); }
